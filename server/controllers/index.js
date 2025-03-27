@@ -1,8 +1,8 @@
 // pull in our models. This will automatically load the index.js from that folder
 const models = require('../models');
 
-// get the Cat model
-const { Cat } = models;
+// get the Cat and Dog models
+const { Cat, Dog } = models;
 
 // Function to handle rendering the index page.
 const hostIndex = async (req, res) => {
@@ -100,6 +100,23 @@ const hostPage3 = (req, res) => {
   res.render('page3');
 };
 
+// Function for rendering the page 4 template
+// Page4 has a loop that iterates over an array of dogs
+// Functions identically to hostPage1
+const hostPage4 = async (req, res) => {
+
+  try {
+    const docs = await Dog.find({}).lean().exec();
+
+    // Once we get back the docs array, we can send it to page1.
+    return res.render('page4', { dogs: docs });
+  } catch (err) {
+
+    console.log(err);
+    return res.status(500).json({ error: 'failed to find dogs' });
+  }
+};
+
 // Get name will return the name of the last added cat.
 const getName = async (req, res) => {
   try{
@@ -121,6 +138,23 @@ const getName = async (req, res) => {
     /* If an error occurs, it means something went wrong with the database. We will
        give the user a 500 internal server error status code and an error message.
     */
+    console.log(err);
+    return res.status(500).json({error: 'Something went wrong contacting the database'});
+  }
+}
+
+// Get name dog will return the name of the last added dog. Works identically to getName.
+const getNameDog = async (req, res) => {
+  try{
+
+    const doc = await Dog.findOne({}).sort({'createdDate': 'descending'}).lean().exec();
+
+    if(doc) {
+      return res.json({name: doc.name});
+    }
+    return res.status(404).json({error: 'No cat found'});
+  } catch (err) {
+
     console.log(err);
     return res.status(500).json({error: 'Something went wrong contacting the database'});
   }
@@ -180,6 +214,35 @@ const setName = async (req, res) => {
        function, not just the catch statement. That means we can treat the code below the catch
        as being our "if the try worked"
     */
+    console.log(err);
+    return res.status(500).json({ error: 'failed to create cat' });
+  }
+};
+
+// Function to create a new dog in the database. Works Identically to setName.
+const setNameDog = async (req, res) => {
+
+  if (!req.body.name|| !req.body.breed || !req.body.age) {
+    // If they are missing data, send back an error.
+    return res.status(400).json({ error: 'name, breed, and age are all required' });
+  }
+
+  const dogData = {
+    name: `${req.body.name}`,
+    breed: `${req.body.breed}`,
+    age: req.body.age,
+  };
+
+  const newDog = new Dog(dogData);
+
+  try {
+    await newDog.save();
+    return res.status(201).json({
+      name: newDog.name,
+      breed: newDog.breed,
+      age: newDog.age,
+    });
+  } catch (err) {
     console.log(err);
     return res.status(500).json({ error: 'failed to create cat' });
   }
@@ -283,15 +346,63 @@ const notFound = (req, res) => {
   });
 };
 
+
+// Function to handle searching a dog by name.
+// If a dog is found, increment the age of the dog by 1
+const searchNameDog = async (req, res) => {
+
+  if (!req.query.name) {
+    return res.status(400).json({ error: 'Name is required to perform a search' });
+  }
+
+  let doc;
+  try {
+
+    doc = await Dog.findOne({ name: req.query.name }).exec();
+  } catch (err) {
+
+    console.log(err);
+    return res.status(500).json({ error: 'Something went wrong' });
+  }
+
+  if (!doc) {
+    return res.status(404).json({ error: 'No dogs found' });
+  }
+
+  const updatePromise = Dog.findOneAndUpdate({name: req.query.name}, {$inc: {'age': 1}}, {
+    returnDocument: 'after', //Populates doc in the .then() with the version after update
+    sort: {'createdDate': 'descending'}
+  }).lean().exec();
+
+  // If we successfully save/update them in the database, send back the dog's info.
+  updatePromise.then((doc) => res.json({
+    name: doc.name,
+    breed: doc.breed,
+    age: doc.age,
+  }));
+
+  // If something goes wrong saving to the database, log the error and send a message to the client.
+  updatePromise.catch((err) => {
+    console.log(err);
+    return res.status(500).json({ error: 'Something went wrong' });
+  });
+};
+
+
+
 // export the relevant public controller functions
 module.exports = {
   index: hostIndex,
   page1: hostPage1,
   page2: hostPage2,
   page3: hostPage3,
+  page4: hostPage4,
   getName,
+  getNameDog,
   setName,
+  setNameDog,
   updateLast,
   searchName,
+  searchNameDog,
   notFound,
 };
