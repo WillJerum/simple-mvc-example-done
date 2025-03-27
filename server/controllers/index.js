@@ -380,6 +380,8 @@ const searchNameDog = async (req, res) => {
   }
 };
 
+// Added this line to force github actions to run
+
 // export the relevant public controller functions
 module.exports = {
   index: hostIndex,
