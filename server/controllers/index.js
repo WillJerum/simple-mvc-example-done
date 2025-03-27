@@ -361,16 +361,14 @@ const searchNameDog = async (req, res) => {
   }
 
   try {
-    const updatedDoc = await Dog.findOneAndUpdate(
-      { name: req.query.name },
+    const updatedDoc = await Dog.findOneAndUpdate({ name: req.query.name },
       { $inc: { age: 1 } },
       {
-        returnDocument: 'after', // Populates doc with the version after the update
+        returnDocument: 'after',
         sort: { createdDate: 'descending' },
-      },
+      }
     ).lean().exec();
 
-    // Send the updated dog's info to the client
     return res.json({
       name: updatedDoc.name,
       breed: updatedDoc.breed,
